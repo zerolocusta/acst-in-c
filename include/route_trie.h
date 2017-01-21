@@ -13,13 +13,5 @@ typedef struct _rtrie{
     struct rtrie_node *root;
 } rtrie_t;
 
-int trie_create(rtrie_t *rt)
-{
-    rtrie_node_t root = (rtrie_node_t *) malloc(sizeof(rtrie_node_t));
-    if (root = NULL)
-        return -1;
-    rt->root = root;
-    return 0;
-}
-
-void add_route()
+int trie_init(rtrie_t *);
+int add_route(rtrie_t *, const char *);
