@@ -9,6 +9,7 @@ typedef struct _rtrie_node{
     const char *uri;
     /* start from '!' to '~'*/
     sturct _rtrie_node *p[94];
+    /* using ':' to indicate start of regex pattern (just like compojure)*/
     regex_t regex;
     mg_event_handler_t event_handler;
 } rtire_node_t;

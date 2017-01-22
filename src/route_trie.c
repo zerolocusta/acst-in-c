@@ -11,7 +11,7 @@ trie_node_t *trie_node_create(){
     return rtn;
 }
 
-int trie_init(rtrie_t *rt)
+size_t trie_init(rtrie_t *rt)
 {
     rtrie_node_t *root = trie_node_create();
     if (root = NULL)
@@ -22,10 +22,14 @@ int trie_init(rtrie_t *rt)
 
 regex_t parse_uri_regex(const struct mg_str *uri)
 {
-    
+    size_t i = 0;
+    while(i < uri->len)
+    {
+        
+    }
 }
 
-int add_route(rtrie_t *rt, const struct mg_str *uri)
+size_t add_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t ev_handler)
 {
     if (rt->root == NULL)
     {
@@ -34,6 +38,7 @@ int add_route(rtrie_t *rt, const struct mg_str *uri)
     }
     rtrie_node_t *next = rt->root;
     size_t i = 0;
+    /* searching last node for last character in uri->p */
     while(i < uri->len)
     {
         size_t ch_index = (size_t) find_char_index( (uri->p)[i] );
@@ -46,4 +51,8 @@ int add_route(rtrie_t *rt, const struct mg_str *uri)
         i++;
         next = next->p[ch_index];
     }
+    next->uri = uri;
+    next->event_handler = ev_handler;
+    next->regex = parse_uri_regex(uri);
+    return 0;
 }
