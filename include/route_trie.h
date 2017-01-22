@@ -3,7 +3,7 @@
 #include <pcre.h>
 #include "mongoose.h"
 
-#define find_char_index(ch) ((ch) - '!') 
+#define FIND_INDEX (ch) ((ch) - '!') 
 
 typedef struct _rtrie_node{
     const char *uri;
