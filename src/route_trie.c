@@ -29,7 +29,7 @@ pcre *parse_uri_regex(const struct mg_str *uri)
     char *regex = (char *) malloc(uri->len);
     for(urindex = 0, regindex = 0; urindex < uri->len; urindex++)
     {
-        /* when find ':', remove it*/
+        /* when find ':', jump it*/
         if (uri->p[urindex] == ':')
             continue;
         regex[regindex++] = uri->p[urindex];
@@ -53,7 +53,7 @@ size_t add_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t ev_ha
             return -1;
     }
     rtrie_node_t *next = rt->root;
-    size_t i = 0;
+    int i = 0;
     /* searching last node for last character in uri->p */
     while(i < uri->len)
     {
