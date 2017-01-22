@@ -1,4 +1,5 @@
-#include <strings.h>
+#include <string.h>
+#include <stdlib.h>
 #include "route_trie.h"
 
 trie_node_t *trie_node_create(){
@@ -20,14 +21,30 @@ size_t trie_init(rtrie_t *rt)
     return 0;
 }
 
-regex_t parse_uri_regex(const struct mg_str *uri)
+pcre *parse_uri_regex(const struct mg_str *uri)
 {
-    size_t i = 0;
-    while(i < uri->len)
+    int urindex, regindex;
+    int erroffset;
+    const char *error;
+    char *regex = (char *) malloc(uri->len);
+    for(urindex = 0, regindex = 0; urindex < uri->len; urindex++)
     {
-        
+        /* when find ':', remove it*/
+        if (uri->p[urindex] == ':')
+            continue;
+        regex[regindex++] = uri->p[urindex];
     }
+    printf("%s\n", regex);
+    pcre *ret = pcre_compile(regex, 0, &error, &erroffset, 0);
+    if (ret == NULL)
+    {
+        printf("pcre_compile failed (offset: %d), %s\n", erroffset, error);
+        exit(-1);
+    }
+    free(regex);
+    return ret;
 }
+
 
 size_t add_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t ev_handler)
 {
