@@ -34,7 +34,6 @@ pcre *parse_uri_regex(const struct mg_str *uri)
             continue;
         regex[regindex++] = uri->p[urindex];
     }
-    printf("%s\n", regex);
     pcre *ret = pcre_compile(regex, 0, &error, &erroffset, 0);
     if (ret == NULL)
     {
