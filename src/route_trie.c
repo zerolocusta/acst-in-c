@@ -1,13 +1,15 @@
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include "route_trie.h"
 
-trie_node_t *trie_node_create(){
-    rtrie_node_t *rtn = (rtrie_node_t *) malloc(sizeof(rtrie_node_t));
-    if(rtn == NULL)
+trie_node_t *trie_node_create()
+{
+    rtrie_node_t *rtn = (rtrie_node_t *)malloc(sizeof(rtrie_node_t));
+    if (rtn == NULL)
         return rtn;
     bzero(rtn, sizeof(rtire_node_t));
-    for(int i = 0; i < 94; i++)
+    for (int i = 0; i < 94; i++)
         rtn->p[i] = NULL;
     return rtn;
 }
@@ -26,14 +28,20 @@ pcre *parse_uri_regex(const struct mg_str *uri)
     int urindex, regindex;
     int erroffset;
     const char *error;
-    char *regex = (char *) malloc(uri->len);
-    for(urindex = 0, regindex = 0; urindex < uri->len; urindex++)
+    char *regex = (char *)malloc(uri->len + 1);
+    if (regex == NULL)
+    {
+        printf("malloc fail, no more memory for regex");
+        exit(-1);
+    }
+    for (urindex = 0, regindex = 0; urindex < uri->len; urindex++)
     {
         /* when find ':', jump it*/
         if (uri->p[urindex] == ':')
             continue;
         regex[regindex++] = uri->p[urindex];
     }
+    regex[regindex] = '\0';
     pcre *ret = pcre_compile(regex, 0, &error, &erroffset, 0);
     if (ret == NULL)
     {
@@ -44,6 +52,25 @@ pcre *parse_uri_regex(const struct mg_str *uri)
     return ret;
 }
 
+/* "/api/news/:([0-9]+)/comment/:([0-9]*)" will be reduce into "/api/news/:/comment/:"*/
+int reduce_uri(const struct mg_str *uri, char *result)
+{
+    int urindex, rindex;
+    for (urindex = 0, rindex = 0; urindex < uri->len;)
+    {
+        result[rindex++] = uri->p[urindex];
+        if (uri->p[urindex] == ':')
+        {
+            while (urindex < uri->len && uri->p[urindex] != '/')
+                urindex++;
+            continue;
+        }
+        urindex++;
+    }
+    result[rindex] = '\0';
+    return 0;
+}
+
 int add_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t ev_handler)
 {
     if (rt->root == NULL)
@@ -51,24 +78,39 @@ int add_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t ev_handl
         if (trie_init(rt) < 0)
             return -1;
     }
-    rtrie_node_t *next = rt->root;
+    rtrie_node_t *current = rt->root;
     int i = 0;
     /* searching last node for last character in uri->p */
-    while(i < uri->len)
+    while (i < uri->len)
     {
         int ch_index = FIND_INDEX(uri->p[i]);
-        if (next->p[ch_index] == NULL)
+        if (current->p[ch_index] == NULL)
         {
-            next->p[ch_index] = trie_node_create();
-            if(next->p[ch_index] == NULL)
+            current->p[ch_index] = trie_node_create();
+            if (current->p[ch_index] == NULL)
                 return -1;
         }
         i++;
-        next = next->p[ch_index];
+        current = current->p[ch_index];
     }
-    next->uri = uri;
-    next->event_handler = ev_handler;
-    next->regex = parse_uri_regex(uri);
+    char *ruri = (char *)malloc(uri->len + 1);
+    reduce_uri(uri, ruri);
+    current->uri = mg_mk_str(ruri);
+    current->event_handler = ev_handler;
+    current->regex = parse_uri_regex(uri);
     return 0;
 }
 
+int matching_route(rtrie_t *rt, const struct mg_str *uri)
+{
+    rtrie_node_t *current_node = rt->root;
+    int urindex = 0;
+    while (urindex < uri->len && current_node != NULL && current_node->next != NULL)
+    {
+        if (current_node->p[':'] != NULL)
+            while (urindex < uri->len && uri->p[urindex] != '/')
+                urindex++;
+        char current_char = uri->p[urindex];
+        int ch_index = FIND_INDEX(current_char);
+    }
+}
