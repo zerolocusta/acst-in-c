@@ -25,10 +25,4 @@ int trie_init(rtrie_t *);
 int add_route(rtrie_t *, const char *);
 pcre *parse_uri_regex(const struct mg_str);
 
-typedef struct _rtrie_match_result
-{
-    mg_event_handler_t event_handler;
-    int *ovector;
-}
-
 #endif

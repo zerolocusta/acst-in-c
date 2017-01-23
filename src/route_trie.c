@@ -84,6 +84,10 @@ int add_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t ev_handl
     while (i < uri->len)
     {
         int ch_index = FIND_INDEX(uri->p[i]);
+
+        if (ch_index < '!' || ch_index > '~')
+            return -1;
+
         if (current->p[ch_index] == NULL)
         {
             current->p[ch_index] = trie_node_create();
@@ -101,16 +105,38 @@ int add_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t ev_handl
     return 0;
 }
 
-int matching_route(rtrie_t *rt, const struct mg_str *uri)
+int matching_route_regex(pcre *re, const struct mg_str *str, int *matchstr_range, int matchstr_range_size)
+{
+    int *ovector = (int *)malloc(matchstr_range_size + 2);
+    int rc = pcre_exec(regex, 0, str, len, 0, 0, ovector, matchstr_range_size + 2);
+}
+
+int matching_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t event_handler,
+                   int *matchstr_range, int matchstr_range_size)
 {
     rtrie_node_t *current_node = rt->root;
     int urindex = 0;
     while (urindex < uri->len && current_node != NULL && current_node->next != NULL)
     {
+        /* if fonud ':' in current node, it means we reach a match pattern, jump it*/
         if (current_node->p[':'] != NULL)
+        {
             while (urindex < uri->len && uri->p[urindex] != '/')
                 urindex++;
-        char current_char = uri->p[urindex];
+            if (urindex == uri->len)
+                break;
+        }
+
+        char current_char = uri->p[urindex++];
         int ch_index = FIND_INDEX(current_char);
+
+        if (ch_index < '!' || ch_index > '~')
+            return -1;
+
+        current_node = current_node->p[ch_index];
     }
+    if (current_node == NULL)
+        return -1;
+
+    event_handler = current_node->event_handler;
 }
