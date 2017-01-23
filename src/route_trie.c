@@ -3,21 +3,21 @@
 #include <stdlib.h>
 #include "route_trie.h"
 
-trie_node_t *trie_node_create()
+rtrie_node_t *rtrie_node_create()
 {
     rtrie_node_t *rtn = (rtrie_node_t *)malloc(sizeof(rtrie_node_t));
     if (rtn == NULL)
         return rtn;
-    bzero(rtn, sizeof(rtire_node_t));
+    bzero(rtn, sizeof(rtrie_node_t));
     for (int i = 0; i < 94; i++)
         rtn->p[i] = NULL;
     return rtn;
 }
 
-int trie_init(rtrie_t *rt)
+int rtrie_init(rtrie_t *rt)
 {
-    rtrie_node_t *root = trie_node_create();
-    if (root = NULL)
+    rtrie_node_t *root = rtrie_node_create();
+    if (root == NULL)
         return -1;
     rt->root = root;
     return 0;
@@ -75,7 +75,7 @@ int add_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t ev_handl
 {
     if (rt->root == NULL)
     {
-        if (trie_init(rt) < 0)
+        if (rtrie_init(rt) < 0)
             return -1;
     }
     rtrie_node_t *current = rt->root;
@@ -90,7 +90,7 @@ int add_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t ev_handl
 
         if (current->p[ch_index] == NULL)
         {
-            current->p[ch_index] = trie_node_create();
+            current->p[ch_index] = rtrie_node_create();
             if (current->p[ch_index] == NULL)
                 return -1;
         }
@@ -107,8 +107,44 @@ int add_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t ev_handl
 
 int matching_route_regex(pcre *re, const struct mg_str *str, int *matchstr_range, int matchstr_range_size)
 {
-    int *ovector = (int *)malloc(matchstr_range_size + 2);
-    int rc = pcre_exec(regex, 0, str, len, 0, 0, ovector, matchstr_range_size + 2);
+    int ovecsize = matchstr_range_size + 2;
+    int *ovector = (int *)malloc(ovecsize);
+    int rc = pcre_exec(re, 0, str->p, str->len, 0, 0, ovector, ovecsize);
+    if (rc < 0)
+    {
+        switch (rc)
+        {
+        case PCRE_ERROR_NOMATCH:
+            printf("String did not match the pattern\n");
+            break;
+        case PCRE_ERROR_NULL:
+            printf("Something was null\n");
+            break;
+        case PCRE_ERROR_BADOPTION:
+            printf("A bad option was passed\n");
+            break;
+        case PCRE_ERROR_BADMAGIC:
+            printf("Magic number bad (compiled re corrupt?)\n");
+            break;
+        case PCRE_ERROR_UNKNOWN_NODE:
+            printf("Something kooky in the compiled re\n");
+            break;
+        case PCRE_ERROR_NOMEMORY:
+            printf("Ran out of memory\n");
+            break;
+        default:
+            printf("Unknown error\n");
+            break;
+        }
+        free(ovector);
+        return -1;
+    }
+    else
+    {
+        memcpy(ovector + 2, matchstr_range, matchstr_range_size);
+        free(ovector);
+        return 0;
+    }
 }
 
 int matching_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t event_handler,
@@ -116,7 +152,7 @@ int matching_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t eve
 {
     rtrie_node_t *current_node = rt->root;
     int urindex = 0;
-    while (urindex < uri->len && current_node != NULL && current_node->next != NULL)
+    while (urindex < uri->len && current_node != NULL && current_node->p[urindex] != NULL)
     {
         /* if fonud ':' in current node, it means we reach a match pattern, jump it*/
         if (current_node->p[':'] != NULL)
@@ -138,5 +174,9 @@ int matching_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t eve
     if (current_node == NULL)
         return -1;
 
+    if (matching_route_regex(current_node->regex, uri, matchstr_range, matchstr_range_size) < 0)
+        return -1;
+
     event_handler = current_node->event_handler;
+    return 0;
 }
