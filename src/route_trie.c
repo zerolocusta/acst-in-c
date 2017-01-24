@@ -141,10 +141,8 @@ int matching_route_regex(pcre *re, const struct mg_str *str, int *matchstr_range
     }
     else
     {
-        memcpy(ovector, matchstr_range, matchstr_range_size);
+        memcpy(matchstr_range, ovector + 2, matchstr_range_size);
         free(ovector);
-        // matchstr_range[0] = ovector[2];
-        // matchstr_range[1] = ovector[3];
         return 0;
     }
 }
