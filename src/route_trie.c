@@ -9,8 +9,6 @@ rtrie_node_t *rtrie_node_create()
     if (rtn == NULL)
         return rtn;
     bzero(rtn, sizeof(rtrie_node_t));
-    for (int i = 0; i < 94; i++)
-        rtn->p[i] = NULL;
     return rtn;
 }
 
@@ -79,13 +77,16 @@ int add_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t ev_handl
             return -1;
     }
     rtrie_node_t *current = rt->root;
+    char *ruri = (char *)malloc(uri->len + 1);
+    reduce_uri(uri, ruri);
+    int len = strlen(ruri);
     int i = 0;
     /* searching last node for last character in uri->p */
-    while (i < uri->len)
+    while (i < len)
     {
-        int ch_index = FIND_INDEX(uri->p[i]);
+        int ch_index = FIND_INDEX(ruri[i]);
 
-        if (ch_index < '!' || ch_index > '~')
+        if (ch_index < 0 || ch_index > 93)
             return -1;
 
         if (current->p[ch_index] == NULL)
@@ -97,9 +98,8 @@ int add_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t ev_handl
         i++;
         current = current->p[ch_index];
     }
-    char *ruri = (char *)malloc(uri->len + 1);
-    reduce_uri(uri, ruri);
-    current->uri = mg_mk_str(ruri);
+
+    current->uri = mg_mk_str_n(ruri, len);
     current->event_handler = ev_handler;
     current->regex = parse_uri_regex(uri);
     return 0;
@@ -107,7 +107,7 @@ int add_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t ev_handl
 
 int matching_route_regex(pcre *re, const struct mg_str *str, int *matchstr_range, int matchstr_range_size)
 {
-    int ovecsize = matchstr_range_size + 2;
+    int ovecsize = matchstr_range_size + 2 * sizeof(int);
     int *ovector = (int *)malloc(ovecsize);
     int rc = pcre_exec(re, 0, str->p, str->len, 0, 0, ovector, ovecsize);
     if (rc < 0)
@@ -141,32 +141,37 @@ int matching_route_regex(pcre *re, const struct mg_str *str, int *matchstr_range
     }
     else
     {
-        memcpy(ovector + 2, matchstr_range, matchstr_range_size);
+        memcpy(ovector, matchstr_range, matchstr_range_size);
         free(ovector);
+        // matchstr_range[0] = ovector[2];
+        // matchstr_range[1] = ovector[3];
         return 0;
     }
 }
 
-int matching_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t event_handler,
-                   int *matchstr_range, int matchstr_range_size)
+int matching_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t *event_handler,
+                   pcre **regex)
 {
     rtrie_node_t *current_node = rt->root;
     int urindex = 0;
-    while (urindex < uri->len && current_node != NULL && current_node->p[urindex] != NULL)
+    int colon_index = FIND_INDEX(':');
+    while (urindex < uri->len && current_node != NULL)
     {
         /* if fonud ':' in current node, it means we reach a match pattern, jump it*/
-        if (current_node->p[':'] != NULL)
+        if (current_node->p[colon_index] != NULL)
         {
             while (urindex < uri->len && uri->p[urindex] != '/')
                 urindex++;
-            if (urindex == uri->len)
+            if (urindex == uri->len){
+                current_node = current_node->p[colon_index];
                 break;
+            }
         }
 
         char current_char = uri->p[urindex++];
         int ch_index = FIND_INDEX(current_char);
 
-        if (ch_index < '!' || ch_index > '~')
+        if (ch_index < 0 || ch_index > 93)
             return -1;
 
         current_node = current_node->p[ch_index];
@@ -174,9 +179,9 @@ int matching_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t eve
     if (current_node == NULL)
         return -1;
 
-    if (matching_route_regex(current_node->regex, uri, matchstr_range, matchstr_range_size) < 0)
-        return -1;
-
-    event_handler = current_node->event_handler;
+    if (event_handler != NULL)
+        *event_handler = current_node->event_handler;
+    if (regex != NULL)
+        *regex = current_node->regex;
     return 0;
 }

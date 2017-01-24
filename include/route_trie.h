@@ -27,7 +27,6 @@ pcre *parse_uri_regex(const struct mg_str *);
 int reduce_uri(const struct mg_str *, char *);
 int add_route(rtrie_t *, const struct mg_str *, mg_event_handler_t);
 int matching_route_regex(pcre *, const struct mg_str *, int *, int);
-int matching_route(rtrie_t *, const struct mg_str *, mg_event_handler_t,
-                   int *, int);
+int matching_route(rtrie_t *, const struct mg_str *, mg_event_handler_t *, pcre **);
 
 #endif
