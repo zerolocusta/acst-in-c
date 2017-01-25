@@ -21,11 +21,11 @@ int rtrie_init(rtrie_t *rt)
     return 0;
 }
 
-pcre *parse_uri_regex(const struct mg_str *uri)
+pcre2_code *parse_uri_regex(const struct mg_str *uri)
 {
     int urindex, regindex;
-    int erroffset;
-    const char *error;
+    PCRE2_SIZE erroffset;
+    int errorcode;
     char *regex = (char *)malloc(uri->len + 1);
     if (regex == NULL)
     {
@@ -40,10 +40,12 @@ pcre *parse_uri_regex(const struct mg_str *uri)
         regex[regindex++] = uri->p[urindex];
     }
     regex[regindex] = '\0';
-    pcre *ret = pcre_compile(regex, 0, &error, &erroffset, 0);
+    pcre2_code *ret = pcre2_compile((PCRE2_SPTR)regex, PCRE2_ZERO_TERMINATED, 0, &errorcode, &erroffset, NULL);
     if (ret == NULL)
     {
-        printf("pcre_compile failed (offset: %d), %s\n", erroffset, error);
+        PCRE2_UCHAR8 errmsg[120];
+        pcre2_get_error_message(errorcode, errmsg, 120);
+        printf("pcre2_compile failed (offset: %zu), %s\n", erroffset, errmsg);
         exit(-1);
     }
     free(regex);
@@ -53,7 +55,7 @@ pcre *parse_uri_regex(const struct mg_str *uri)
 /* "/api/news/:([0-9]+)/comment/:([0-9]*)" will be reduce into "/api/news/:/comment/:"*/
 int reduce_uri(const struct mg_str *uri, char *result)
 {
-    int urindex, rindex;
+    uint32_t urindex, rindex;
     for (urindex = 0, rindex = 0; urindex < uri->len;)
     {
         result[rindex++] = uri->p[urindex];
@@ -105,50 +107,27 @@ int add_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t ev_handl
     return 0;
 }
 
-int matching_route_regex(pcre *re, const struct mg_str *str, int *matchstr_range, int matchstr_range_size)
+int matching_route_regex(pcre2_code *re, const struct mg_str *str, size_t *matchstr_range, size_t matchstr_range_size)
 {
-    int ovecsize = matchstr_range_size + 2 * sizeof(int);
-    int *ovector = (int *)malloc(ovecsize);
-    int rc = pcre_exec(re, 0, str->p, str->len, 0, 0, ovector, ovecsize);
-    if (rc < 0)
+    size_t *ovector;
+    pcre2_match_data *match_data = pcre2_match_data_create_from_pattern(re, NULL);
+    int rc = pcre2_match(re, (PCRE2_SPTR)str->p, str->len, 0, 0, match_data, NULL);
+    if (rc <= 0)
     {
-        switch (rc)
-        {
-        case PCRE_ERROR_NOMATCH:
-            printf("String did not match the pattern\n");
-            break;
-        case PCRE_ERROR_NULL:
-            printf("Something was null\n");
-            break;
-        case PCRE_ERROR_BADOPTION:
-            printf("A bad option was passed\n");
-            break;
-        case PCRE_ERROR_BADMAGIC:
-            printf("Magic number bad (compiled re corrupt?)\n");
-            break;
-        case PCRE_ERROR_UNKNOWN_NODE:
-            printf("Something kooky in the compiled re\n");
-            break;
-        case PCRE_ERROR_NOMEMORY:
-            printf("Ran out of memory\n");
-            break;
-        default:
-            printf("Unknown error\n");
-            break;
-        }
-        free(ovector);
+        pcre2_match_data_free(match_data);
         return -1;
     }
     else
-    {
+    {   
+        ovector = pcre2_get_ovector_pointer(match_data);
         memcpy(matchstr_range, ovector + 2, matchstr_range_size);
-        free(ovector);
+        pcre2_match_data_free(match_data);
         return 0;
     }
 }
 
 int matching_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t *event_handler,
-                   pcre **regex)
+                   pcre2_code **re)
 {
     rtrie_node_t *current_node = rt->root;
     int urindex = 0;
@@ -160,7 +139,8 @@ int matching_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t *ev
         {
             while (urindex < uri->len && uri->p[urindex] != '/')
                 urindex++;
-            if (urindex == uri->len){
+            if (urindex == uri->len)
+            {
                 current_node = current_node->p[colon_index];
                 break;
             }
@@ -179,7 +159,7 @@ int matching_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t *ev
 
     if (event_handler != NULL)
         *event_handler = current_node->event_handler;
-    if (regex != NULL)
-        *regex = current_node->regex;
+    if (re != NULL)
+        *re = current_node->regex;
     return 0;
 }
