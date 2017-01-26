@@ -5,6 +5,7 @@
 #include <pcre2.h>
 #include "mongoose.h"
 
+#define COLON_INDEX FIND_INDEX(':')
 #define FIND_INDEX(ch) ((ch) - '!')
 
 typedef struct _rtrie_node

@@ -131,17 +131,16 @@ int matching_route(rtrie_t *rt, const struct mg_str *uri, mg_event_handler_t *ev
 {
     rtrie_node_t *current_node = rt->root;
     int urindex = 0;
-    int colon_index = FIND_INDEX(':');
     while (urindex < uri->len && current_node != NULL)
     {
         /* if fonud ':' in current node, it means we reach a match pattern, jump it*/
-        if (current_node->p[colon_index] != NULL)
+        if (current_node->p[COLON_INDEX] != NULL)
         {
             while (urindex < uri->len && uri->p[urindex] != '/')
                 urindex++;
             if (urindex == uri->len)
             {
-                current_node = current_node->p[colon_index];
+                current_node = current_node->p[COLON_INDEX];
                 break;
             }
         }
