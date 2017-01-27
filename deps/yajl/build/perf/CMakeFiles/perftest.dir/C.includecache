@@ -1,0 +1,44 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/parallels/dev/proj/zlblog/deps/yajl/perf/documents.c
+documents.h
+/home/parallels/dev/proj/zlblog/deps/yajl/perf/documents.h
+stdlib.h
+-
+string.h
+-
+
+/home/parallels/dev/proj/zlblog/deps/yajl/perf/documents.h
+
+/home/parallels/dev/proj/zlblog/deps/yajl/perf/perftest.c
+yajl/yajl_parse.h
+-
+stdio.h
+-
+stdlib.h
+-
+string.h
+-
+documents.h
+/home/parallels/dev/proj/zlblog/deps/yajl/perf/documents.h
+sys/time.h
+-
+windows.h
+-
+
+perf/../yajl-2.1.0/include/yajl/yajl_common.h
+stddef.h
+-
+
+perf/../yajl-2.1.0/include/yajl/yajl_parse.h
+yajl/yajl_common.h
+-
+stddef.h
+-
+
